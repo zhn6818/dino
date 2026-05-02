@@ -8,8 +8,17 @@
 #   后台运行：            nohup bash train.sh docker > train.log 2>&1 &
 
 MODE=${1:-local}
-GPUS="1,2,3,4,5,6,7"
-NUM_GPUS=7
+
+# 自动检测 GPU：多卡时跳过 GPU 0，单卡时使用该卡
+TOTAL_GPUS=$(nvidia-smi -L 2>/dev/null | wc -l)
+if [ "$TOTAL_GPUS" -le 1 ]; then
+    GPUS="0"
+    NUM_GPUS=1
+else
+    GPUS=$(seq -s, 1 $((TOTAL_GPUS - 1)))
+    NUM_GPUS=$((TOTAL_GPUS - 1))
+fi
+echo "检测到 ${TOTAL_GPUS} 张 GPU，使用 GPU ${GPUS}（${NUM_GPUS} 张）进行训练"
 
 TRAIN_CMD="source /opt/miniconda3/etc/profile.d/conda.sh && conda activate ai && \
     torchrun \
