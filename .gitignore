@@ -1,3 +1,6 @@
 __pycache__/
 dino_output/
 *.log
+pretrained/
+attention_maps_all/
+img/

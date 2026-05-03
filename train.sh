@@ -42,9 +42,15 @@ TRAIN_CMD="source /opt/miniconda3/etc/profile.d/conda.sh && conda activate ai &&
         --num_workers 4 \
         --seed 0"
 
+# Docker 命令前缀（无权限时自动加 sudo）
+DOCKER="docker"
+if ! docker info >/dev/null 2>&1; then
+    DOCKER="sudo docker"
+fi
+
 case "$MODE" in
     docker)
-        docker exec \
+        $DOCKER exec \
             -w /data2/zhn/code/dino \
             -e NVIDIA_VISIBLE_DEVICES=${GPUS} \
             JHCVTrain \
