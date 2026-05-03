@@ -25,7 +25,7 @@
 #   bash train.sh --mode docker --arch vit_small --patch_size 16
 #
 #   # 后台运行
-#   nohup bash train.sh --arch vit_small --patch_size 16 > train.log 2>&1 &
+#   nohup bash train.sh --arch vit_small --patch_size 16 --mode docker > train_vit_small_p16.log 2>&1 &
 #   nohup bash train.sh --arch resnet50 --mode docker > train_resnet50.log 2>&1 &
 
 # ── 默认参数 ──
@@ -127,12 +127,12 @@ case "$MODE" in
     docker)
         $DOCKER exec \
             -w /data2/zhn/code/dino \
-            -e NVIDIA_VISIBLE_DEVICES=${GPUS} \
+            -e CUDA_VISIBLE_DEVICES=${GPUS} \
             JHCVTrain \
             bash -c "$TRAIN_CMD"
         ;;
     local)
-        export NVIDIA_VISIBLE_DEVICES=${GPUS}
+        export CUDA_VISIBLE_DEVICES=${GPUS}
         eval "$TRAIN_CMD"
         ;;
     *)
