@@ -26,6 +26,7 @@
 #
 #   # 后台运行
 #   nohup bash train.sh --arch vit_small --patch_size 16 > train.log 2>&1 &
+#   nohup bash train.sh --arch resnet50 --mode docker > train_resnet50.log 2>&1 &
 
 # ── 默认参数 ──
 MODE=local
