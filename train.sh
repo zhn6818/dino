@@ -1,15 +1,79 @@
 #!/bin/bash
 # DINO 训练脚本
-# 硬件：GPU 1-7（7 卡）
 #
 # 用法：
-#   宿主机执行：          bash train.sh docker
-#   容器内手动执行：      bash train.sh local
-#   后台运行：            nohup bash train.sh docker > train.log 2>&1 &
+#   bash train.sh [选项]
+#
+# 训练样例：
+#
+#   # ViT-Small patch16（默认轻量配置）
+#   bash train.sh --arch vit_small --patch_size 16
+#
+#   # ViT-Small patch8（更精细，显存更大）
+#   bash train.sh --arch vit_small --patch_size 8 --batch_size_per_gpu 10
+#
+#   # ViT-Base patch16（更大模型，需更多显存）
+#   bash train.sh --arch vit_base --patch_size 16 --batch_size_per_gpu 8
+#
+#   # ViT-Base patch8（最强效果，显存需求最大）
+#   bash train.sh --arch vit_base --patch_size 8 --batch_size_per_gpu 4
+#
+#   # ResNet-50（卷积网络，无需 patch_size）
+#   bash train.sh --arch resnet50 --mode docker
+#
+#   # 容器内执行
+#   bash train.sh --mode docker --arch vit_small --patch_size 16
+#
+#   # 后台运行
+#   nohup bash train.sh --arch vit_small --patch_size 16 > train.log 2>&1 &
 
-MODE=${1:-local}
+# ── 默认参数 ──
+MODE=local
+ARCH=vit_small
+PATCH_SIZE=
+DATA_PATH=/data2/zhn/code/data/jinxiang/
+EPOCHS=1000
+BATCH_SIZE_PER_GPU=16
+LOCAL_CROPS_NUMBER=4
+USE_FP16=true
+OPTIMIZER=adamw
+LR=0.0005
+WARMUP_EPOCHS=10
+WEIGHT_DECAY=0.04
+WEIGHT_DECAY_END=0.4
+SAVECKP_FREQ=20
+NUM_WORKERS=4
+SEED=0
+MASTER_PORT=29503
 
-# 自动检测 GPU：多卡时跳过 GPU 0，单卡时使用该卡
+# ── 解析参数 ──
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode)                MODE="$2";                shift 2 ;;
+        --arch)                ARCH="$2";                shift 2 ;;
+        --patch_size)          PATCH_SIZE="$2";          shift 2 ;;
+        --data_path)           DATA_PATH="$2";           shift 2 ;;
+        --epochs)              EPOCHS="$2";              shift 2 ;;
+        --batch_size_per_gpu)  BATCH_SIZE_PER_GPU="$2";  shift 2 ;;
+        --local_crops_number)  LOCAL_CROPS_NUMBER="$2";  shift 2 ;;
+        --use_fp16)            USE_FP16="$2";            shift 2 ;;
+        --optimizer)           OPTIMIZER="$2";           shift 2 ;;
+        --lr)                  LR="$2";                  shift 2 ;;
+        --warmup_epochs)       WARMUP_EPOCHS="$2";       shift 2 ;;
+        --weight_decay)        WEIGHT_DECAY="$2";        shift 2 ;;
+        --weight_decay_end)    WEIGHT_DECAY_END="$2";    shift 2 ;;
+        --saveckp_freq)        SAVECKP_FREQ="$2";        shift 2 ;;
+        --num_workers)         NUM_WORKERS="$2";         shift 2 ;;
+        --seed)                SEED="$2";                shift 2 ;;
+        --master_port)         MASTER_PORT="$2";         shift 2 ;;
+        *)
+            echo "未知参数: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# ── GPU 检测 ──
 TOTAL_GPUS=$(nvidia-smi -L 2>/dev/null | wc -l)
 if [ "$TOTAL_GPUS" -le 1 ]; then
     GPUS="0"
@@ -20,29 +84,39 @@ else
 fi
 echo "检测到 ${TOTAL_GPUS} 张 GPU，使用 GPU ${GPUS}（${NUM_GPUS} 张）进行训练"
 
+# ── 输出目录：根据架构和 patch 自动命名 ──
+if [ -n "$PATCH_SIZE" ]; then
+    OUTPUT_DIR="./dino_output/${ARCH}_p${PATCH_SIZE}"
+    PATCH_ARG="--patch_size ${PATCH_SIZE}"
+else
+    OUTPUT_DIR="./dino_output/${ARCH}"
+    PATCH_ARG=""
+fi
+echo "输出目录: ${OUTPUT_DIR}"
+
 TRAIN_CMD="source /opt/miniconda3/etc/profile.d/conda.sh && conda activate ai && \
     torchrun \
         --nproc_per_node=${NUM_GPUS} \
-        --master_port=29502 \
+        --master_port=${MASTER_PORT} \
         main_dino.py \
-        --arch vit_small \
-        --patch_size 16 \
-        --data_path /data2/zhn/code/data/jinxiang/ \
-        --output_dir ./dino_output \
-        --epochs 1000 \
-        --batch_size_per_gpu 16 \
-        --local_crops_number 4 \
-        --use_fp16 true \
-        --optimizer adamw \
-        --lr 0.0005 \
-        --warmup_epochs 10 \
-        --weight_decay 0.04 \
-        --weight_decay_end 0.4 \
-        --saveckp_freq 20 \
-        --num_workers 4 \
-        --seed 0"
+        --arch ${ARCH} \
+        ${PATCH_ARG} \
+        --data_path ${DATA_PATH} \
+        --output_dir ${OUTPUT_DIR} \
+        --epochs ${EPOCHS} \
+        --batch_size_per_gpu ${BATCH_SIZE_PER_GPU} \
+        --local_crops_number ${LOCAL_CROPS_NUMBER} \
+        --use_fp16 ${USE_FP16} \
+        --optimizer ${OPTIMIZER} \
+        --lr ${LR} \
+        --warmup_epochs ${WARMUP_EPOCHS} \
+        --weight_decay ${WEIGHT_DECAY} \
+        --weight_decay_end ${WEIGHT_DECAY_END} \
+        --saveckp_freq ${SAVECKP_FREQ} \
+        --num_workers ${NUM_WORKERS} \
+        --seed ${SEED}"
 
-# Docker 命令前缀（无权限时自动加 sudo）
+# ── Docker 命令前缀（无权限时自动加 sudo） ──
 DOCKER="docker"
 if ! docker info >/dev/null 2>&1; then
     DOCKER="sudo docker"
@@ -61,9 +135,7 @@ case "$MODE" in
         eval "$TRAIN_CMD"
         ;;
     *)
-        echo "用法: bash train.sh [docker|local]"
-        echo "  docker - 在 JHCVTrain 容器中训练"
-        echo "  local  - 在当前环境（容器内或宿主机）直接训练"
+        echo "未知模式: ${MODE}，请使用 docker 或 local"
         exit 1
         ;;
 esac
