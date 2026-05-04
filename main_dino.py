@@ -47,7 +47,11 @@ def get_args_parser():
 
     # ==================== 模型参数 ====================
     parser.add_argument('--arch', default='vit_small', type=str,
-        choices=['vit_tiny', 'vit_small', 'vit_base', 'xcit', 'deit_tiny', 'deit_small'] \
+        choices=['vit_tiny', 'vit_small', 'vit_base',
+                 'xcit_small_12_p16', 'xcit_small_12_p8',
+                 'xcit_medium_24_p16', 'xcit_medium_24_p8',
+                 'xcit_large_24_p16', 'xcit_large_24_p8',
+                 'deit_tiny', 'deit_small'] \
                 + torchvision_archs,
         help="""Name of architecture to train. For quick experiments with ViTs,
         we recommend using vit_tiny or vit_small.""")
@@ -132,7 +136,6 @@ def get_args_parser():
     parser.add_argument('--local_crops_scale', type=float, nargs='+', default=(0.05, 0.4),
         help="""Scale range of the cropped image before resizing, relatively to the origin image.
         Used for small local view cropping of multi-crop.""")
-
     # ==================== 杂项 ====================
     parser.add_argument('--data_path', default='/path/to/imagenet/train/', type=str,
         help='Please specify path to the ImageNet training data.')
@@ -189,6 +192,12 @@ def train_dino(args):
         embed_dim = student.embed_dim
     # 2) XCiT 系列 —— 通过 torch.hub 从外部仓库加载（需要网络）
     elif args.arch.startswith("xcit"):
+        # 仅 rank 0 下载，避免多进程并发 makedirs 冲突
+        if args.rank == 0:
+            torch.hub.load('facebookresearch/xcit:main', args.arch,
+                           pretrained=False, drop_path_rate=args.drop_path_rate)
+        if utils.is_dist_avail_and_initialized():
+            dist.barrier()
         student = torch.hub.load('facebookresearch/xcit:main', args.arch,
                                  pretrained=False, drop_path_rate=args.drop_path_rate)
         teacher = torch.hub.load('facebookresearch/xcit:main', args.arch, pretrained=False)
