@@ -136,6 +136,11 @@ def get_args_parser():
     parser.add_argument('--local_crops_scale', type=float, nargs='+', default=(0.05, 0.4),
         help="""Scale range of the cropped image before resizing, relatively to the origin image.
         Used for small local view cropping of multi-crop.""")
+    # 裁剪输出尺寸
+    parser.add_argument('--global_crop_size', type=int, default=224,
+        help="Global crop output size (default: 224). Use 512 for high-res training.")
+    parser.add_argument('--local_crop_size', type=int, default=96,
+        help="Local crop output size (default: 96).")
     # ==================== 杂项 ====================
     parser.add_argument('--data_path', default='/path/to/imagenet/train/', type=str,
         help='Please specify path to the ImageNet training data.')
@@ -163,6 +168,8 @@ def train_dino(args):
         args.global_crops_scale,
         args.local_crops_scale,
         args.local_crops_number,
+        args.global_crop_size,
+        args.local_crop_size,
     )
     dataset = datasets.ImageFolder(args.data_path, transform=transform)
     # 分布式采样器，确保每个 GPU 看到不同的数据子集
@@ -518,7 +525,8 @@ class DataAugmentationDINO(object):
     这些裁剪作为学生的输入（全部）和教师的输入（仅全局裁剪）。
     """
 
-    def __init__(self, global_crops_scale, local_crops_scale, local_crops_number):
+    def __init__(self, global_crops_scale, local_crops_scale, local_crops_number,
+                 global_crop_size=224, local_crop_size=96):
         # 通用增强：水平翻转 + 颜色抖动 + 随机灰度
         flip_and_color_jitter = transforms.Compose([
             transforms.RandomHorizontalFlip(p=0.5),
@@ -536,14 +544,14 @@ class DataAugmentationDINO(object):
 
         # 第一个全局裁剪：高斯模糊概率 100%
         self.global_transfo1 = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),
+            transforms.RandomResizedCrop(global_crop_size, scale=global_crops_scale, interpolation=Image.BICUBIC),
             flip_and_color_jitter,
             utils.GaussianBlur(1.0),
             normalize,
         ])
         # 第二个全局裁剪：高斯模糊概率 10%，加入曝光处理（概率 20%）
         self.global_transfo2 = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),
+            transforms.RandomResizedCrop(global_crop_size, scale=global_crops_scale, interpolation=Image.BICUBIC),
             flip_and_color_jitter,
             utils.GaussianBlur(0.1),
             utils.Solarization(0.2),
@@ -552,7 +560,7 @@ class DataAugmentationDINO(object):
         # 局部小裁剪：高斯模糊概率 50%，无曝光
         self.local_crops_number = local_crops_number
         self.local_transfo = transforms.Compose([
-            transforms.RandomResizedCrop(96, scale=local_crops_scale, interpolation=Image.BICUBIC),
+            transforms.RandomResizedCrop(local_crop_size, scale=local_crops_scale, interpolation=Image.BICUBIC),
             flip_and_color_jitter,
             utils.GaussianBlur(p=0.5),
             normalize,
