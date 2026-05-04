@@ -21,7 +21,7 @@ done
 
 IMAGE=${IMAGE:-img/test4.jpg}
 if [ "$ARCH" = "resnet" ]; then
-    CHECKPOINT=${CHECKPOINT:-dino_output/resnet50/checkpoint.pth}
+    CHECKPOINT=${CHECKPOINT:-dino_output/resnet50_gc512_lc256/checkpoint.pth}
 else
     CHECKPOINT=${CHECKPOINT:-dino_output/checkpoint.pth}
 fi

@@ -28,15 +28,19 @@
 #   nohup bash train.sh --arch vit_small --patch_size 16 --mode docker > train_vit_small_p16.log 2>&1 &
 #   nohup bash train.sh --arch resnet50 --mode docker > train_resnet50.log 2>&1 &
 #   nohup bash train.sh --arch xcit_small_12_p16 --mode docker > train_xcit_small_12_p16.log 2>&1 &
-
+#   bash train.sh --mode docker --arch resnet50
 # ── 默认参数 ──
 MODE=local
 ARCH=vit_small
 PATCH_SIZE=
 DATA_PATH=/data2/zhn/code/data/jinxiang/
 EPOCHS=1000
-BATCH_SIZE_PER_GPU=16
-LOCAL_CROPS_NUMBER=4
+BATCH_SIZE_PER_GPU=2
+LOCAL_CROPS_NUMBER=32
+GLOBAL_CROP_SIZE=512
+LOCAL_CROP_SIZE=256
+GLOBAL_CROPS_SCALE="0.1 0.3"
+LOCAL_CROPS_SCALE="0.05 0.15"
 USE_FP16=true
 OPTIMIZER=adamw
 LR=0.0005
@@ -58,6 +62,10 @@ while [[ $# -gt 0 ]]; do
         --epochs)              EPOCHS="$2";              shift 2 ;;
         --batch_size_per_gpu)  BATCH_SIZE_PER_GPU="$2";  shift 2 ;;
         --local_crops_number)  LOCAL_CROPS_NUMBER="$2";  shift 2 ;;
+        --global_crop_size)    GLOBAL_CROP_SIZE="$2";    shift 2 ;;
+        --local_crop_size)     LOCAL_CROP_SIZE="$2";     shift 2 ;;
+        --global_crops_scale)  GLOBAL_CROPS_SCALE="$2";  shift 2 ;;
+        --local_crops_scale)   LOCAL_CROPS_SCALE="$2";   shift 2 ;;
         --use_fp16)            USE_FP16="$2";            shift 2 ;;
         --optimizer)           OPTIMIZER="$2";           shift 2 ;;
         --lr)                  LR="$2";                  shift 2 ;;
@@ -86,13 +94,17 @@ else
 fi
 echo "检测到 ${TOTAL_GPUS} 张 GPU，使用 GPU ${GPUS}（${NUM_GPUS} 张）进行训练"
 
-# ── 输出目录：根据架构和 patch 自动命名 ──
+# ── 输出目录：根据架构和参数自动命名 ──
 if [ -n "$PATCH_SIZE" ]; then
     OUTPUT_DIR="./dino_output/${ARCH}_p${PATCH_SIZE}"
     PATCH_ARG="--patch_size ${PATCH_SIZE}"
 else
     OUTPUT_DIR="./dino_output/${ARCH}"
     PATCH_ARG=""
+fi
+# 非默认裁剪尺寸时追加到目录名
+if [ "$GLOBAL_CROP_SIZE" != "224" ] || [ "$LOCAL_CROP_SIZE" != "96" ]; then
+    OUTPUT_DIR="${OUTPUT_DIR}_gc${GLOBAL_CROP_SIZE}_lc${LOCAL_CROP_SIZE}"
 fi
 echo "输出目录: ${OUTPUT_DIR}"
 
@@ -108,6 +120,10 @@ TRAIN_CMD="source /opt/miniconda3/etc/profile.d/conda.sh && conda activate ai &&
         --epochs ${EPOCHS} \
         --batch_size_per_gpu ${BATCH_SIZE_PER_GPU} \
         --local_crops_number ${LOCAL_CROPS_NUMBER} \
+        --global_crop_size ${GLOBAL_CROP_SIZE} \
+        --local_crop_size ${LOCAL_CROP_SIZE} \
+        --global_crops_scale ${GLOBAL_CROPS_SCALE} \
+        --local_crops_scale ${LOCAL_CROPS_SCALE} \
         --use_fp16 ${USE_FP16} \
         --optimizer ${OPTIMIZER} \
         --lr ${LR} \
