@@ -38,6 +38,43 @@ torchvision_archs = sorted(name for name in torchvision_models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(torchvision_models.__dict__[name]))
 
+
+def load_pretrained_dino_weights(student, teacher, pretrained_weights):
+    print(f"Loading pretrained weights from {pretrained_weights}")
+    checkpoint = torch.load(pretrained_weights, map_location="cpu")
+
+    def load_matching_state_dict(model, state_dict, name):
+        model_state = model.state_dict()
+        matched_state = {}
+        skipped = []
+
+        for key, value in state_dict.items():
+            clean_key = key[len("module."):] if key.startswith("module.") else key
+            if clean_key in model_state and model_state[clean_key].shape == value.shape:
+                matched_state[clean_key] = value
+            else:
+                skipped.append(clean_key)
+
+        msg = model.load_state_dict(matched_state, strict=False)
+        print(
+            f"Loaded {len(matched_state)}/{len(model_state)} {name} tensors from pretrained checkpoint. "
+            f"Skipped {len(skipped)} tensors with missing keys or shape mismatch."
+        )
+        if skipped:
+            print(f"Skipped {name} tensors: {', '.join(skipped[:12])}")
+        print(f"{name} load msg: {msg}")
+
+    if "student" in checkpoint:
+        load_matching_state_dict(student.module, checkpoint["student"], "student")
+    else:
+        raise KeyError("Pretrained checkpoint does not contain a 'student' state dict.")
+
+    if "teacher" in checkpoint:
+        load_matching_state_dict(teacher, checkpoint["teacher"], "teacher")
+    else:
+        raise KeyError("Pretrained checkpoint does not contain a 'teacher' state dict.")
+
+
 def get_args_parser():
     parser = argparse.ArgumentParser('DINO', add_help=False)
 
@@ -258,29 +295,26 @@ def train_dino(args):
                                                args.epochs, len(data_loader))
     print(f"Loss, optimizer and schedulers ready.")
 
-    # ============ optionally resume training ... ============
+    # ============ optionally resume training or initialize from pretrained weights ... ============
     to_restore = {"epoch": 0}
-    utils.restart_from_checkpoint(
-        os.path.join(args.output_dir, "checkpoint.pth"),
-        run_variables=to_restore,
-        student=student,
-        teacher=teacher,
-        optimizer=optimizer,
-        fp16_scaler=fp16_scaler,
-        dino_loss=dino_loss,
-    )
-    start_epoch = to_restore["epoch"]
-
-    # ============ optionally load pretrained weights for fine-tuning ============
+    checkpoint_path = os.path.join(args.output_dir, "checkpoint.pth")
     if args.pretrained_weights:
         if os.path.isfile(args.pretrained_weights):
-            print(f"Loading pretrained weights from {args.pretrained_weights}")
-            checkpoint = torch.load(args.pretrained_weights, map_location="cpu")
-            student.module.load_state_dict(checkpoint["student"], strict=False)
-            teacher_without_ddp.load_state_dict(checkpoint["teacher"], strict=False)
-            print("Pretrained student and teacher weights loaded. Optimizer and epoch are reset.")
+            load_pretrained_dino_weights(student, teacher_without_ddp, args.pretrained_weights)
+            print("Pretrained student and teacher weights loaded. Optimizer and epoch start from scratch.")
         else:
             raise FileNotFoundError(f"Pretrained weights not found: {args.pretrained_weights}")
+    else:
+        utils.restart_from_checkpoint(
+            checkpoint_path,
+            run_variables=to_restore,
+            student=student,
+            teacher=teacher,
+            optimizer=optimizer,
+            fp16_scaler=fp16_scaler,
+            dino_loss=dino_loss,
+        )
+    start_epoch = to_restore["epoch"]
 
     start_time = time.time()
     print("Starting DINO training !")

@@ -4,7 +4,7 @@
 # 参考: https://dl.fbaipublicfiles.com/dino/dino_resnet50_pretrain/args.txt
 
 DATA_PATH=/data2/zhn/code/data/jinxiang/
-OUTPUT_DIR=./output/resnet50
+OUTPUT_DIR=./output/resnet50_texture
 BATCH_SIZE_PER_GPU=4
 LOCAL_CROPS_NUMBER=6
 GLOBAL_CROP_SIZE=512
