@@ -64,4 +64,5 @@ python -m torch.distributed.launch \
     --clip_grad 0 \
     --use_fp16 false \
     --saveckp_freq 20 \
-    --seed 0
+    --seed 0 \
+    --pretrained_weights pretrained/dino_resnet50_pretrain_full_checkpoint.pth

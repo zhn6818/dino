@@ -127,6 +127,7 @@ def get_args_parser():
     parser.add_argument('--saveckp_freq', default=20, type=int, help='Save checkpoint every x epochs.')
     parser.add_argument('--seed', default=0, type=int, help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, help='Number of data loading workers per GPU.')
+    parser.add_argument("--pretrained_weights", default="", type=str, help="Path to pretrained checkpoint for fine-tuning (loads student/teacher weights, resets optimizer/epoch).")
     parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     parser.add_argument("--local_rank", "--local-rank", default=0, type=int, help="Please ignore and do not set this argument.")
@@ -269,6 +270,17 @@ def train_dino(args):
         dino_loss=dino_loss,
     )
     start_epoch = to_restore["epoch"]
+
+    # ============ optionally load pretrained weights for fine-tuning ============
+    if args.pretrained_weights:
+        if os.path.isfile(args.pretrained_weights):
+            print(f"Loading pretrained weights from {args.pretrained_weights}")
+            checkpoint = torch.load(args.pretrained_weights, map_location="cpu")
+            student.module.load_state_dict(checkpoint["student"], strict=False)
+            teacher_without_ddp.load_state_dict(checkpoint["teacher"], strict=False)
+            print("Pretrained student and teacher weights loaded. Optimizer and epoch are reset.")
+        else:
+            raise FileNotFoundError(f"Pretrained weights not found: {args.pretrained_weights}")
 
     start_time = time.time()
     print("Starting DINO training !")

@@ -2,3 +2,4 @@ img/
 output/
 __pycache__/
 **/_pycache_/
+pretrained/
