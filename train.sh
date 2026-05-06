@@ -43,11 +43,11 @@ GLOBAL_CROPS_SCALE="0.05 0.2"
 LOCAL_CROPS_SCALE="0.01 0.08"
 USE_FP16=true
 OPTIMIZER=adamw
-LR=0.0005
-WARMUP_EPOCHS=10
+LR=0.0001
+WARMUP_EPOCHS=5
 WEIGHT_DECAY=0.04
 WEIGHT_DECAY_END=0.4
-SAVECKP_FREQ=20
+SAVECKP_FREQ=10
 NUM_WORKERS=4
 SEED=0
 MASTER_PORT=29503
@@ -102,10 +102,7 @@ else
     OUTPUT_DIR="./dino_output/${ARCH}"
     PATCH_ARG=""
 fi
-# 非默认裁剪尺寸时追加到目录名
-if [ "$GLOBAL_CROP_SIZE" != "224" ] || [ "$LOCAL_CROP_SIZE" != "96" ]; then
-    OUTPUT_DIR="${OUTPUT_DIR}_gc${GLOBAL_CROP_SIZE}_lc${LOCAL_CROP_SIZE}"
-fi
+
 echo "输出目录: ${OUTPUT_DIR}"
 
 TRAIN_CMD="source /opt/miniconda3/etc/profile.d/conda.sh && conda activate ai && \
