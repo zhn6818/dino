@@ -5,5 +5,5 @@ for ckpt in ${CKPT_DIR}/checkpoint[0-9][0-9][0-9][0-9].pth; do
     epoch=${name#checkpoint}
     outdir="gradcam_maps/${epoch}"
     echo "=== Epoch ${epoch} ==="
-    python visualize_resnet.py --pretrained_weights "$ckpt" --output_dir "$outdir"
+    python visualize_resnet.py --pretrained_weights "$ckpt" --output_dir "$outdir" --image_path "img/test5.jpg"
 done

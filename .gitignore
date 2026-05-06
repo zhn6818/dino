@@ -6,3 +6,6 @@ attention_maps_all/
 img/
 gradcam_maps/
 .claude/
+linear_eval_self_train_512/
+linear_eval_pretrained/
+linear_eval_self_train/

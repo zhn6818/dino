@@ -62,9 +62,10 @@ def eval_linear(args):
     linear_classifier = nn.parallel.DistributedDataParallel(linear_classifier, device_ids=[args.gpu])
 
     # ============ preparing data ... ============
+    resize_size = int(args.input_size * 256 / 224)
     val_transform = pth_transforms.Compose([
-        pth_transforms.Resize(256, interpolation=3),
-        pth_transforms.CenterCrop(224),
+        pth_transforms.Resize(resize_size, interpolation=3),
+        pth_transforms.CenterCrop(args.input_size),
         pth_transforms.ToTensor(),
         pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ])
@@ -83,7 +84,7 @@ def eval_linear(args):
         return
 
     train_transform = pth_transforms.Compose([
-        pth_transforms.RandomResizedCrop(224),
+        pth_transforms.RandomResizedCrop(args.input_size),
         pth_transforms.RandomHorizontalFlip(),
         pth_transforms.ToTensor(),
         pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
@@ -276,6 +277,8 @@ if __name__ == '__main__':
     parser.add_argument('--val_freq', default=1, type=int, help="Epoch frequency for validation.")
     parser.add_argument('--output_dir', default=".", help='Path to save logs and checkpoints')
     parser.add_argument('--num_labels', default=1000, type=int, help='Number of labels for linear classifier')
+    parser.add_argument('--input_size', default=224, type=int,
+        help='Input image size for evaluation. Match your training global crop size (e.g. 224 or 512).')
     parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='evaluate model on validation set')
     args = parser.parse_args()
     eval_linear(args)
