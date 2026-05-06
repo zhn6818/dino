@@ -9,3 +9,4 @@ gradcam_maps/
 linear_eval_self_train_512/
 linear_eval_pretrained/
 linear_eval_self_train/
+JLD/
