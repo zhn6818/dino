@@ -30,8 +30,8 @@ import vision_transformer as vits
 def extract_feature_pipeline(args):
     # ============ preparing data ... ============
     transform = pth_transforms.Compose([
-        pth_transforms.Resize(256, interpolation=3),
-        pth_transforms.CenterCrop(224),
+        pth_transforms.Resize(int(args.crop_size * 256 / 224), interpolation=3),
+        pth_transforms.CenterCrop(args.crop_size),
         pth_transforms.ToTensor(),
         pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ])
@@ -211,6 +211,8 @@ if __name__ == '__main__':
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
     parser.add_argument('--data_path', default='/path/to/imagenet/', type=str)
+    parser.add_argument('--crop_size', default=224, type=int, choices=[224, 448],
+        help='Center crop size for evaluation (resize is auto-scaled: 224->256, 448->512)')
     args = parser.parse_args()
 
     utils.init_distributed_mode(args)
