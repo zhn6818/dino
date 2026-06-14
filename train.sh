@@ -1,10 +1,15 @@
 #!/bin/bash
 
 export OMP_NUM_THREADS=4
+export PYTHONUNBUFFERED=1  # 禁用 python 输出缓冲，让 train.log 实时刷新（torchrun 转发层也会无缓冲）
+
+# ============ 激活 conda ai 环境（容器内）============
+source /opt/miniconda3/etc/profile.d/conda.sh
+conda activate ai
 
 # ============ 可配置参数 ============
-GPUS="3,4,5"                        # 使用的 GPU 编号
-DATA_PATH="/data1/code/cv_workspace/datasets/dino_data/"
+GPUS="0"                        # 使用的 GPU 编号
+DATA_PATH="/data1/zhn/jinxiang/origin_data_split"
 BASE_OUTPUT="/data1/code/dino/output2"
 MASTER_PORT=29500
 # ===================================
@@ -23,7 +28,7 @@ COMMON_ARGS="--arch resnet50 \
     --weight_decay 1e-4 \
     --weight_decay_end 1e-4 \
     --saveckp_freq 20 \
-    --num_workers 16 \
+    --num_workers 8 \
     --global_crops_size 448 \
     --local_crops_size 192 \
     --global_crops_scale 0.3 1.0 \
